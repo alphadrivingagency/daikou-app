@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>daikou / 運行記録</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12151c;
+    --surface:#1b1f29;
+    --surface2:#232838;
+    --line:#2e3444;
+    --text:#e9ecf2;
+    --muted:#8b93a5;
+    --amber:#f2b134;
+    --amber-dim:#5c451a;
+    --ok:#4fae82;
+    --danger:#e2635c;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(242,177,52,0.06), transparent 40%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono', monospace}
+  #app{max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column;}
+
+  /* --- ヘッダー --- */
+  .topbar{
+    padding:22px 20px 16px; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:baseline; gap:8px;}
+  .brand .dot{width:8px; height:8px; border-radius:50%; background:var(--amber); box-shadow:0 0 8px var(--amber);}
+  .brand-name{font-weight:900; font-size:18px; letter-spacing:.02em;}
+  .brand-sub{font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace;}
+  .who{font-size:12px; color:var(--muted); text-align:right;}
+  .who button{
+    margin-top:4px; background:none; border:1px solid var(--line); color:var(--muted);
+    font-size:11px; padding:4px 10px; border-radius:20px; cursor:pointer;
+  }
+
+  main{flex:1; padding:20px; padding-bottom:100px;}
+
+  /* --- ログイン --- */
+  .login-hero{text-align:center; padding:60px 20px 30px;}
+  .login-hero .mark{font-size:38px; margin-bottom:6px;}
+  .login-hero h1{font-size:22px; margin:0 0 6px; font-weight:900;}
+  .login-hero p{color:var(--muted); font-size:13px; margin:0;}
+
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px;}
+  label{display:block; font-size:12px; color:var(--muted); margin:0 0 6px;}
+  input, select, textarea{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--surface2); color:var(--text); font-size:15px; margin-bottom:14px;
+    font-family:inherit;
+  }
+  input:focus, select:focus, textarea:focus{outline:none; border-color:var(--amber);}
+  .btn{
+    display:block; width:100%; text-align:center; padding:13px; border-radius:10px; border:none;
+    font-weight:700; font-size:15px; cursor:pointer; font-family:inherit;
+  }
+  .btn-primary{background:var(--amber); color:#1b1206;}
+  .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--text);}
+  .btn-ok{background:var(--ok); color:#06251a;}
+  .btn-danger{background:var(--danger); color:#2b0908;}
+  .btn-row{display:flex; gap:10px;}
+  .btn-row .btn{flex:1}
+  .error-msg{color:var(--danger); font-size:13px; margin:-6px 0 12px;}
+
+  /* --- タブ --- */
+  .tabs{
+    position:fixed; bottom:0; left:0; right:0; background:var(--surface);
+    border-top:1px solid var(--line); display:flex; max-width:480px; margin:0 auto;
+  }
+  .tab{flex:1; text-align:center; padding:14px 4px 18px; color:var(--muted); font-size:11px; cursor:pointer;}
+  .tab.active{color:var(--amber);}
+  .tab .ic{font-size:18px; display:block; margin-bottom:2px;}
+
+  h2.section-title{font-size:13px; color:var(--muted); letter-spacing:.08em; margin:0 0 14px; text-transform:uppercase;}
+
+  /* --- 報告履歴 / 承認待ちリスト --- */
+  .report-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 0; border-bottom:1px solid var(--line);
+  }
+  .report-row:last-child{border-bottom:none;}
+  .report-date{font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--muted); width:70px;}
+  .report-mid{flex:1; padding:0 10px;}
+  .report-amount{font-family:'JetBrains Mono',monospace; font-weight:600;}
+  .badge{font-size:10px; padding:3px 8px; border-radius:20px; font-weight:700;}
+  .badge-pending{background:var(--amber-dim); color:var(--amber);}
+  .badge-ok{background:rgba(79,174,130,0.15); color:var(--ok);}
+  .badge-reject{background:rgba(226,99,92,0.15); color:var(--danger);}
+  .match-warn{color:var(--danger); font-size:11px; margin-top:2px;}
+  .match-ok{color:var(--ok); font-size:11px; margin-top:2px;}
+
+  /* --- 明細 --- */
+  .invoice{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:22px; margin-bottom:16px;}
+  .invoice-to{font-size:11px; color:var(--muted);}
+  .invoice-to b{color:var(--text); font-size:15px; display:block; margin-top:2px;}
+  .invoice-period{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); margin:10px 0 16px;}
+  .invoice-line{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px dashed var(--line);}
+  .invoice-sum{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; color:var(--muted);}
+  .invoice-total{display:flex; justify-content:space-between; margin-top:10px; padding-top:12px; border-top:1px solid var(--line);
+    font-weight:900; font-size:19px;}
+  .invoice-total .mono{color:var(--amber);}
+
+  .empty{text-align:center; color:var(--muted); font-size:13px; padding:30px 0;}
+  .period-select{display:flex; gap:8px; margin-bottom:16px;}
+  .period-select button{flex:1; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:12px; cursor:pointer;}
+  .period-select button.active{border-color:var(--amber); color:var(--amber);}
+
+  .emp-list-row{display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--line);}
+  .emp-list-row:last-child{border-bottom:none;}
+  .emp-name{font-weight:700;}
+  .emp-sub{font-size:11px; color:var(--muted);}
+  .link-btn{background:none; border:none; color:var(--amber); font-size:12px; cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =========================================================
+   ここにGASデプロイ後の「ウェブアプリURL」を貼り付けてください
+   例: https://script.google.com/macros/s/xxxxx/exec
+   ========================================================= */
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbw4uq2FjEvzdxb7UnQaFIIcE7ycAvuZbCarMfJnqwwfC2pvpsMPuzRp8P1zv8sK89hGyA/execE';
+
+const state = {
+  user: null,       // {id, name, email, role, clientName}
+  tab: 'report',    // report | history | payslip | approve | master
+  loading: false,
+  error: '',
+};
+
+async function api(action, params = {}) {
+  const body = JSON.stringify({ action, ...params });
+  const res = await fetch(GAS_API_URL, {
+    method: 'POST',
+    body,
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+  });
+  if (!res.ok) throw new Error('通信エラー: ' + res.status);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  if (!state.user) {
+    app.innerHTML = renderLogin();
+    bindLogin();
+    return;
+  }
+  app.innerHTML = renderShell();
+  bindShell();
+}
+
+/* ---------------- ログイン画面 ---------------- */
+function renderLogin() {
+  return `
+    <div class="login-hero">
+      <div class="mark">◈</div>
+      <h1>運行記録 / 明細</h1>
+      <p>メールアドレスでログインしてください</p>
+    </div>
+    <main>
+      <div class="card">
+        <label>メールアドレス</label>
+        <input id="loginEmail" type="email" placeholder="you@example.com">
+        <label>パスワード</label>
+        <input id="loginPassword" type="password" placeholder="••••••••">
+        ${state.error ? `<div class="error-msg">${state.error}</div>` : ''}
+        <button class="btn btn-primary" id="loginBtn">${state.loading ? 'ログイン中…' : 'ログイン'}</button>
+      </div>
+    </main>
+  `;
+}
+function bindLogin() {
+  document.getElementById('loginBtn').onclick = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!email || !password) { state.error = 'メールアドレスとパスワードを入力してください'; render(); return; }
+    state.loading = true; state.error=''; render();
+    try {
+      const user = await api('login', { email, password });
+      state.user = user;
+      state.tab = user.role === '管理者' ? 'approve' : 'report';
+      state.error = '';
+    } catch (e) {
+      state.error = e.message;
+    }
+    state.loading = false;
+    render();
+  };
+}
+
+/* ---------------- シェル(ヘッダー+タブ) ---------------- */
+function renderShell() {
+  const isAdmin = state.user.role === '管理者';
+  const tabs = isAdmin
+    ? [['approve','✓','承認'], ['master','⚙','従業員'], ['payslip','⌘','明細確認']]
+    : [['report','+','報告'], ['history','≡','履歴'], ['payslip','⌘','明細']];
+
+  return `
+    <div class="topbar">
+      <div class="brand">
+        <span class="dot"></span>
+        <div>
+          <div class="brand-name">運行記録</div>
+          <div class="brand-sub">${isAdmin ? 'ADMIN CONSOLE' : state.user.clientName || ''}</div>
+        </div>
+      </div>
+      <div class="who">
+        ${state.user.name}
+        <button id="logoutBtn">ログアウト</button>
+      </div>
+    </div>
+    <main id="mainArea"></main>
+    <div class="tabs">
+      ${tabs.map(([key, ic, label]) => `
+        <div class="tab ${state.tab === key ? 'active' : ''}" data-tab="${key}">
+          <span class="ic">${ic}</span>${label}
+        </div>`).join('')}
+    </div>
+  `;
+}
+
+function bindShell() {
+  document.getElementById('logoutBtn').onclick = () => { state.user = null; render(); };
+  document.querySelectorAll('.tab').forEach(el => {
+    el.onclick = () => { state.tab = el.dataset.tab; render(); };
+  });
+  renderMain();
+}
+
+async function renderMain() {
+  const main = document.getElementById('mainArea');
+  main.innerHTML = `<div class="empty">読み込み中…</div>`;
+  try {
+    if (state.tab === 'report') return renderReportForm(main);
+    if (state.tab === 'history') return renderHistory(main);
+    if (state.tab === 'payslip') return renderPayslip(main);
+    if (state.tab === 'approve') return renderApprove(main);
+    if (state.tab === 'master') return renderMaster(main);
+  } catch (e) {
+    main.innerHTML = `<div class="card"><div class="error-msg">${e.message}</div></div>`;
+  }
+}
+
+/* ---------------- 従業員: 報告フォーム ---------------- */
+function renderReportForm(main) {
+  const today = new Date().toISOString().slice(0,10);
+  main.innerHTML = `
+    <h2 class="section-title">日次報告</h2>
+    <div class="card">
+      <label>日付</label>
+      <input id="rDate" type="date" value="${today}">
+      <label>売上金額(円)</label>
+      <input id="rAmount" type="number" placeholder="例: 29900" inputmode="numeric">
+      <label>相手(ペア)の氏名</label>
+      <input id="rPartner" type="text" placeholder="例: 菅野">
+      <div id="rMsg" class="error-msg" style="display:none"></div>
+      <button class="btn btn-primary" id="rSubmit">この内容で報告する</button>
+    </div>
+    <p style="color:var(--muted); font-size:12px; line-height:1.6;">
+      1日に複数件(ペアが異なる案件)がある場合は、案件ごとに分けて報告してください。
+      報告内容は管理部の承認後に明細へ反映されます。
+    </p>
+  `;
+  document.getElementById('rSubmit').onclick = async () => {
+    const date = document.getElementById('rDate').value;
+    const amount = document.getElementById('rAmount').value;
+    const partnerName = document.getElementById('rPartner').value.trim();
+    const msg = document.getElementById('rMsg');
+    if (!date || !amount || !partnerName) {
+      msg.style.display='block'; msg.textContent='すべての項目を入力してください'; return;
+    }
+    try {
+      await api('submitReport', { employeeId: state.user.id, date, amount, partnerName });
+      state.tab = 'history'; render();
+    } catch (e) {
+      msg.style.display='block'; msg.textContent = e.message;
+    }
+  };
+}
+
+/* ---------------- 従業員: 報告履歴 ---------------- */
+async function renderHistory(main) {
+  const reports = await api('getMyReports', { employeeId: state.user.id });
+  const badge = s => s === '承認済み' ? `<span class="badge badge-ok">承認済み</span>`
+    : s === '差し戻し' ? `<span class="badge badge-reject">差し戻し</span>`
+    : `<span class="badge badge-pending">未承認</span>`;
+  main.innerHTML = `
+    <h2 class="section-title">報告履歴</h2>
+    <div class="card">
+      ${reports.length === 0 ? '<div class="empty">まだ報告がありません</div>' :
+        reports.map(r => `
+          <div class="report-row">
+            <div class="report-date">${r.date}</div>
+            <div class="report-mid">
+              相手: ${r.partnerName}
+              ${r.status === '差し戻し' && r.comment ? `<div class="match-warn">${r.comment}</div>` : ''}
+            </div>
+            <div style="text-align:right">
+              <div class="report-amount">¥${Number(r.amount).toLocaleString()}</div>
+              ${badge(r.status)}
+            </div>
+          </div>
+        `).join('')}
+    </div>
+  `;
+}
+
+/* ---------------- 従業員: 明細 ---------------- */
+function currentPeriods() {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const lastDay = new Date(y, m+1, 0).getDate();
+  return [
+    { label: `${m+1}/1〜${m+1}/15`, start: `${y}-${String(m+1).padStart(2,'0')}-01`, end: `${y}-${String(m+1).padStart(2,'0')}-15` },
+    { label: `${m+1}/16〜${m+1}/${lastDay}`, start: `${y}-${String(m+1).padStart(2,'0')}-16`, end: `${y}-${String(m+1).padStart(2,'0')}-${lastDay}` },
+  ];
+}
+async function renderPayslip(main, employeeIdOverride) {
+  const periods = currentPeriods();
+  if (!state._periodIdx) state._periodIdx = 0;
+  const empId = employeeIdOverride || state.user.id;
+
+  const draw = async () => {
+    const p = periods[state._periodIdx];
+    const slip = await api('getPayslip', { employeeId: empId, periodStart: p.start, periodEnd: p.end });
+    main.innerHTML = `
+      <h2 class="section-title">明細</h2>
+      <div class="period-select">
+        ${periods.map((pp,i) => `<button data-i="${i}" class="${i===state._periodIdx?'active':''}">${pp.label}</button>`).join('')}
+      </div>
+      <div class="invoice">
+        <div class="invoice-to">請求先<b>${slip.clientName || '(未設定)'}</b></div>
+        <div class="invoice-period mono">${slip.periodStart} 〜 ${slip.periodEnd} / ${slip.employeeName}</div>
+        ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
+          slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
+        <div class="invoice-sum"><span>小計</span><span class="mono">¥${slip.subtotal.toLocaleString()}</span></div>
+        <div class="invoice-sum"><span>車両貸出料(9%)</span><span class="mono">−¥${slip.vehicleFee.toLocaleString()}</span></div>
+        ${slip.insurance ? `<div class="invoice-sum"><span>保険代</span><span class="mono">−¥${slip.insurance.toLocaleString()}</span></div>` : ''}
+        <div class="invoice-total"><span>請求合計</span><span class="mono">¥${slip.total.toLocaleString()}</span></div>
+      </div>
+    `;
+    main.querySelectorAll('.period-select button').forEach(b => {
+      b.onclick = () => { state._periodIdx = Number(b.dataset.i); draw(); };
+    });
+  };
+  await draw();
+}
+
+/* ---------------- 管理者: 承認待ち ---------------- */
+async function renderApprove(main) {
+  const list = await api('getPendingApprovals');
+  main.innerHTML = `
+    <h2 class="section-title">承認待ち (${list.length}件)</h2>
+    <div class="card">
+      ${list.length === 0 ? '<div class="empty">承認待ちの報告はありません</div>' :
+        list.map(r => `
+          <div class="report-row" style="align-items:flex-start; flex-wrap:wrap;">
+            <div class="report-date">${r.date}</div>
+            <div class="report-mid">
+              <div><b>${r.employeeName}</b> ⇄ ${r.partnerName}</div>
+              <div class="${r.matched ? 'match-ok' : 'match-warn'}">${r.matched ? '✓ ペア照合OK' : '⚠ 相手側の報告が見つかりません'}</div>
+            </div>
+            <div style="text-align:right; width:100%; margin-top:8px;">
+              <div class="report-amount" style="margin-bottom:8px;">¥${Number(r.amount).toLocaleString()}</div>
+              <div class="btn-row">
+                <button class="btn btn-ok" data-approve="${r.id}">承認</button>
+                <button class="btn btn-danger" data-reject="${r.id}">差し戻し</button>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+    </div>
+  `;
+  main.querySelectorAll('[data-approve]').forEach(b => {
+    b.onclick = async () => { await api('approveReport', { reportId: b.dataset.approve }); renderApprove(main); };
+  });
+  main.querySelectorAll('[data-reject]').forEach(b => {
+    b.onclick = async () => {
+      const comment = prompt('差し戻し理由を入力してください');
+      if (comment === null) return;
+      await api('rejectReport', { reportId: b.dataset.reject, comment });
+      renderApprove(main);
+    };
+  });
+}
+
+/* ---------------- 管理者: 従業員マスタ ---------------- */
+async function renderMaster(main) {
+  const employees = await api('getEmployees');
+  main.innerHTML = `
+    <h2 class="section-title">従業員マスタ</h2>
+    <div class="card">
+      ${employees.map(e => `
+        <div class="emp-list-row">
+          <div>
+            <div class="emp-name">${e.name}</div>
+            <div class="emp-sub">歩合${e.commissionRate}% ・ 保険¥${Number(e.insuranceFee||0).toLocaleString()} ・ ${e.role}</div>
+          </div>
+          <button class="link-btn" data-edit="${e.id}">編集</button>
+        </div>
+      `).join('')}
+    </div>
+    <button class="btn btn-ghost" id="addEmpBtn">＋ 従業員を追加</button>
+    <div id="empForm"></div>
+  `;
+  const openForm = (emp) => {
+    const box = document.getElementById('empForm');
+    box.innerHTML = `
+      <div class="card">
+        <label>氏名</label><input id="fName" value="${emp?.name||''}">
+        <label>メールアドレス</label><input id="fEmail" value="${emp?.email||''}">
+        <label>パスワード ${emp ? '(変更する場合のみ入力)' : ''}</label><input id="fPass" type="password">
+        <label>歩合率(%)</label><input id="fRate" type="number" value="${emp?.commissionRate||''}">
+        <label>保険代(円/月)</label><input id="fIns" type="number" value="${emp?.insuranceFee||''}">
+        <label>請求先名</label><input id="fClient" value="${emp?.clientName||''}">
+        <label>ロール</label>
+        <select id="fRole">
+          <option value="従業員" ${emp?.role==='従業員'?'selected':''}>従業員</option>
+          <option value="管理者" ${emp?.role==='管理者'?'selected':''}>管理者</option>
+        </select>
+        <button class="btn btn-primary" id="saveEmpBtn">保存</button>
+      </div>
+    `;
+    document.getElementById('saveEmpBtn').onclick = async () => {
+      await api('saveEmployee', { employee: JSON.stringify({
+        id: emp?.id, name: document.getElementById('fName').value,
+        email: document.getElementById('fEmail').value,
+        password: document.getElementById('fPass').value,
+        commissionRate: document.getElementById('fRate').value,
+        insuranceFee: document.getElementById('fIns').value,
+        clientName: document.getElementById('fClient').value,
+        role: document.getElementById('fRole').value,
+      })});
+      renderMaster(main);
+    };
+  };
+  document.getElementById('addEmpBtn').onclick = () => openForm(null);
+  main.querySelectorAll('[data-edit]').forEach(b => {
+    b.onclick = () => openForm(employees.find(e => e.id === b.dataset.edit));
+  });
+}
+
+render();
+</script>
+</body>
+</html>

@@ -123,6 +123,30 @@
   .emp-name{font-weight:700;}
   .emp-sub{font-size:11px; color:var(--muted);}
   .link-btn{background:none; border:none; color:var(--amber); font-size:12px; cursor:pointer;}
+
+  /* --- 印刷 --- */
+  #batchPrintArea{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    .print-area, .print-area *{visibility:visible;}
+    #batchPrintArea.print-area{display:block; position:absolute; left:0; top:0; width:100%;}
+    #singleInvoice.print-area{position:absolute; left:0; top:0; width:100%; background:#fff; color:#000; border-color:#000;}
+  }
+  .batch-print-page{
+    display:grid; grid-template-columns:repeat(3, 1fr); grid-template-rows:repeat(2, 1fr);
+    width:210mm; height:297mm; page-break-after:always; box-sizing:border-box;
+  }
+  .batch-slip{
+    border:1px dashed #999; padding:5mm; font-size:8.5px; color:#000; background:#fff;
+    display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box;
+    font-family:'JetBrains Mono', monospace;
+  }
+  .batch-slip-to{font-size:8px; color:#555;}
+  .batch-slip-name{font-weight:700; font-size:11px; margin:2px 0;}
+  .batch-slip-period{font-size:7.5px; color:#555; margin-bottom:4px;}
+  .batch-line{display:flex; justify-content:space-between; padding:1px 0; border-bottom:1px dotted #ccc;}
+  .batch-sum{border-top:1px solid #000; margin-top:2px; border-bottom:none;}
+  .batch-total{font-weight:700; font-size:10px; border-top:1px solid #000; margin-top:2px; border-bottom:none;}
 </style>
 </head>
 <body>
@@ -209,7 +233,7 @@ function bindLogin() {
 function renderShell() {
   const isAdmin = state.user.role === '管理者';
   const tabs = isAdmin
-    ? [['approve','✓','承認'], ['master','⚙','従業員'], ['payslip','⌘','明細確認']]
+    ? [['approve','✓','承認'], ['master','⚙','従業員'], ['payslip','⌘','明細/印刷'], ['summary','▤','サマリー']]
     : [['report','+','報告'], ['history','≡','履歴'], ['payslip','⌘','明細']];
 
   return `
@@ -253,23 +277,41 @@ async function renderMain() {
     if (state.tab === 'payslip') return renderPayslip(main);
     if (state.tab === 'approve') return renderApprove(main);
     if (state.tab === 'master') return renderMaster(main);
+    if (state.tab === 'summary') return renderSummary(main);
   } catch (e) {
     main.innerHTML = `<div class="card"><div class="error-msg">${e.message}</div></div>`;
   }
 }
 
 /* ---------------- 従業員: 報告フォーム ---------------- */
+/* 出勤(業務開始)日のデフォルト値を計算する
+   0:00〜6:59台に開いた場合は前日を初期表示(深夜またぎの勤務を考慮) */
+function getDefaultReportDate() {
+  const now = new Date();
+  const hour = now.getHours();
+  const d = new Date(now);
+  if (hour < 7) {
+    d.setDate(d.getDate() - 1);
+  }
+  return d.toISOString().slice(0,10);
+}
+
 function renderReportForm(main) {
-  const today = new Date().toISOString().slice(0,10);
+  const defaultDate = getDefaultReportDate();
   main.innerHTML = `
     <h2 class="section-title">日次報告</h2>
     <div class="card">
-      <label>日付</label>
-      <input id="rDate" type="date" value="${today}">
+      <label>日付(出勤日)</label>
+      <input id="rDate" type="date" value="${defaultDate}">
+      <div style="color:var(--muted); font-size:11px; margin:-10px 0 14px;">
+        日をまたぐ勤務の場合も、出勤(業務開始)した日を入力してください
+      </div>
       <label>売上金額(円)</label>
       <input id="rAmount" type="number" placeholder="例: 29900" inputmode="numeric">
       <label>相手(ペア)の氏名</label>
       <input id="rPartner" type="text" placeholder="例: 菅野">
+      <label>メモ(任意)</label>
+      <textarea id="rMemo" rows="2" placeholder="特記事項があれば入力"></textarea>
       <div id="rMsg" class="error-msg" style="display:none"></div>
       <button class="btn btn-primary" id="rSubmit">この内容で報告する</button>
     </div>
@@ -282,12 +324,13 @@ function renderReportForm(main) {
     const date = document.getElementById('rDate').value;
     const amount = document.getElementById('rAmount').value;
     const partnerName = document.getElementById('rPartner').value.trim();
+    const memo = document.getElementById('rMemo').value.trim();
     const msg = document.getElementById('rMsg');
     if (!date || !amount || !partnerName) {
       msg.style.display='block'; msg.textContent='すべての項目を入力してください'; return;
     }
     try {
-      await api('submitReport', { employeeId: state.user.id, date, amount, partnerName });
+      await api('submitReport', { employeeId: state.user.id, date, amount, partnerName, memo });
       state.tab = 'history'; render();
     } catch (e) {
       msg.style.display='block'; msg.textContent = e.message;
@@ -310,6 +353,7 @@ async function renderHistory(main) {
             <div class="report-date">${r.date}</div>
             <div class="report-mid">
               相手: ${r.partnerName}
+              ${r.memo ? `<div style="color:var(--muted); font-size:11px;">${r.memo}</div>` : ''}
               ${r.status === '差し戻し' && r.comment ? `<div class="match-warn">${r.comment}</div>` : ''}
             </div>
             <div style="text-align:right">
@@ -322,43 +366,195 @@ async function renderHistory(main) {
   `;
 }
 
-/* ---------------- 従業員: 明細 ---------------- */
-function currentPeriods() {
-  const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth();
-  const lastDay = new Date(y, m+1, 0).getDate();
+/* ---------------- 明細(共通) ---------------- */
+function periodsForMonth(year, month) {
+  const mm = String(month).padStart(2, '0');
+  const lastDay = new Date(year, month, 0).getDate();
   return [
-    { label: `${m+1}/1〜${m+1}/15`, start: `${y}-${String(m+1).padStart(2,'0')}-01`, end: `${y}-${String(m+1).padStart(2,'0')}-15` },
-    { label: `${m+1}/16〜${m+1}/${lastDay}`, start: `${y}-${String(m+1).padStart(2,'0')}-16`, end: `${y}-${String(m+1).padStart(2,'0')}-${lastDay}` },
+    { label: `前期(1〜15日)`, start: `${year}-${mm}-01`, end: `${year}-${mm}-15` },
+    { label: `後期(16〜${lastDay}日)`, start: `${year}-${mm}-16`, end: `${year}-${mm}-${lastDay}` },
   ];
 }
-async function renderPayslip(main, employeeIdOverride) {
-  const periods = currentPeriods();
-  if (!state._periodIdx) state._periodIdx = 0;
-  const empId = employeeIdOverride || state.user.id;
+
+async function renderPayslip(main) {
+  const isAdmin = state.user.role === '管理者';
+  if (!state.slip) {
+    const now = new Date();
+    state.slip = { year: now.getFullYear(), month: now.getMonth() + 1, periodIdx: now.getDate() <= 15 ? 0 : 1, employeeId: isAdmin ? null : state.user.id };
+  }
+  let employees = [];
+  if (isAdmin) {
+    employees = await api('getEmployees');
+    if (!state.slip.employeeId) state.slip.employeeId = employees[0]?.id;
+  }
 
   const draw = async () => {
-    const p = periods[state._periodIdx];
-    const slip = await api('getPayslip', { employeeId: empId, periodStart: p.start, periodEnd: p.end });
+    const periods = periodsForMonth(state.slip.year, state.slip.month);
+    const p = periods[state.slip.periodIdx];
+    const empId = state.slip.employeeId;
+    const slip = empId ? await api('getPayslip', { employeeId: empId, periodStart: p.start, periodEnd: p.end }) : null;
+
     main.innerHTML = `
       <h2 class="section-title">明細</h2>
+      ${isAdmin ? `
+        <div class="card" style="padding:12px 16px;">
+          <label style="margin-bottom:6px;">従業員</label>
+          <select id="empSelect">
+            ${employees.map(e => `<option value="${e.id}" ${e.id===empId?'selected':''}>${e.name}</option>`).join('')}
+          </select>
+        </div>
+      ` : ''}
       <div class="period-select">
-        ${periods.map((pp,i) => `<button data-i="${i}" class="${i===state._periodIdx?'active':''}">${pp.label}</button>`).join('')}
+        <button id="prevMonth">◀</button>
+        <div style="flex:2; text-align:center; align-self:center; font-size:13px;">${state.slip.year}年${state.slip.month}月</div>
+        <button id="nextMonth">▶</button>
       </div>
-      <div class="invoice">
-        <div class="invoice-to">請求先<b>${slip.clientName || '(未設定)'}</b></div>
-        <div class="invoice-period mono">${slip.periodStart} 〜 ${slip.periodEnd} / ${slip.employeeName}</div>
-        ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
-          slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
-        <div class="invoice-sum"><span>小計</span><span class="mono">¥${slip.subtotal.toLocaleString()}</span></div>
-        <div class="invoice-sum"><span>車両貸出料(9%)</span><span class="mono">−¥${slip.vehicleFee.toLocaleString()}</span></div>
-        ${slip.insurance ? `<div class="invoice-sum"><span>保険代</span><span class="mono">−¥${slip.insurance.toLocaleString()}</span></div>` : ''}
-        <div class="invoice-total"><span>請求合計</span><span class="mono">¥${slip.total.toLocaleString()}</span></div>
+      <div class="period-select">
+        ${periods.map((pp,i) => `<button data-i="${i}" class="${i===state.slip.periodIdx?'active':''}">${pp.label}</button>`).join('')}
       </div>
+      <div class="invoice" id="singleInvoice">
+        ${!slip ? '<div class="empty">従業員を選択してください</div>' : `
+          <div class="invoice-to">請求先<b>${slip.clientName || '(未設定)'}</b></div>
+          <div class="invoice-period mono">${slip.periodStart} 〜 ${slip.periodEnd} / ${slip.employeeName}</div>
+          ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
+            slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
+          <div class="invoice-sum"><span>小計</span><span class="mono">¥${slip.subtotal.toLocaleString()}</span></div>
+          <div class="invoice-sum"><span>車両貸出料</span><span class="mono">−¥${slip.vehicleFee.toLocaleString()}</span></div>
+          ${slip.insurance ? `<div class="invoice-sum"><span>保険代</span><span class="mono">−¥${slip.insurance.toLocaleString()}</span></div>` : ''}
+          <div class="invoice-total"><span>請求合計</span><span class="mono">¥${slip.total.toLocaleString()}</span></div>
+        `}
+      </div>
+      ${isAdmin && slip ? `<button class="btn btn-ghost" id="printSingleBtn">この明細を印刷</button>` : ''}
     `;
-    main.querySelectorAll('.period-select button').forEach(b => {
-      b.onclick = () => { state._periodIdx = Number(b.dataset.i); draw(); };
+
+    document.getElementById('prevMonth').onclick = () => { shiftMonth(-1); draw(); };
+    document.getElementById('nextMonth').onclick = () => { shiftMonth(1); draw(); };
+    main.querySelectorAll('.period-select button[data-i]').forEach(b => {
+      b.onclick = () => { state.slip.periodIdx = Number(b.dataset.i); draw(); };
     });
+    if (isAdmin) {
+      document.getElementById('empSelect').onchange = (ev) => { state.slip.employeeId = ev.target.value; draw(); };
+      const pBtn = document.getElementById('printSingleBtn');
+      if (pBtn) pBtn.onclick = () => printElement(document.getElementById('singleInvoice'));
+    }
+  };
+
+  const shiftMonth = (delta) => {
+    let m = state.slip.month + delta, y = state.slip.year;
+    if (m < 1) { m = 12; y -= 1; } if (m > 12) { m = 1; y += 1; }
+    state.slip.month = m; state.slip.year = y;
+  };
+
+  await draw();
+}
+
+/* ---------------- 印刷共通処理 ---------------- */
+function ensurePrintArea() {
+  if (!document.getElementById('batchPrintArea')) {
+    const el = document.createElement('div');
+    el.id = 'batchPrintArea';
+    document.body.appendChild(el);
+  }
+}
+function printElement(el) {
+  el.classList.add('print-area');
+  window.print();
+  setTimeout(() => el.classList.remove('print-area'), 300);
+}
+async function batchPrint(employees, period) {
+  ensurePrintArea();
+  const area = document.getElementById('batchPrintArea');
+  area.innerHTML = `<div class="empty" style="color:#000;">印刷データを準備中…</div>`;
+  const slips = [];
+  for (const emp of employees) {
+    try {
+      const slip = await api('getPayslip', { employeeId: emp.id, periodStart: period.start, periodEnd: period.end });
+      slips.push(slip);
+    } catch (e) { /* skip失敗分 */ }
+  }
+  const chunks = [];
+  for (let i = 0; i < slips.length; i += 6) chunks.push(slips.slice(i, i + 6));
+  if (chunks.length === 0) chunks.push([]);
+
+  area.innerHTML = chunks.map(chunk => `
+    <div class="batch-print-page">
+      ${chunk.map(slip => `
+        <div class="batch-slip">
+          <div class="batch-slip-to">${slip.clientName || ''} 様</div>
+          <div class="batch-slip-name">${slip.employeeName} 様</div>
+          <div class="batch-slip-period">${slip.periodStart} 〜 ${slip.periodEnd}</div>
+          ${slip.lines.map(l => `<div class="batch-line"><span>${l.date.slice(5)}</span><span>¥${l.amount.toLocaleString()}</span></div>`).join('')}
+          <div class="batch-line batch-sum"><span>小計</span><span>¥${slip.subtotal.toLocaleString()}</span></div>
+          <div class="batch-line"><span>車両貸出料</span><span>−¥${slip.vehicleFee.toLocaleString()}</span></div>
+          ${slip.insurance ? `<div class="batch-line"><span>保険代</span><span>−¥${slip.insurance.toLocaleString()}</span></div>` : ''}
+          <div class="batch-line batch-total"><span>支給額</span><span>¥${slip.total.toLocaleString()}</span></div>
+        </div>
+      `).join('')}
+      ${chunk.length < 6 ? Array.from({length: 6 - chunk.length}).map(() => '<div class="batch-slip"></div>').join('') : ''}
+    </div>
+  `).join('');
+
+  area.classList.add('print-area');
+  window.print();
+  setTimeout(() => area.classList.remove('print-area'), 500);
+}
+
+/* ---------------- 管理者: 月次サマリー ---------------- */
+async function renderSummary(main) {
+  if (!state.summary) {
+    const now = new Date();
+    state.summary = { year: now.getFullYear(), month: now.getMonth() + 1, periodIdx: now.getDate() <= 15 ? 0 : 1 };
+  }
+  const draw = async () => {
+    const periods = periodsForMonth(state.summary.year, state.summary.month);
+    const data = await api('getMonthlySummary', { year: state.summary.year, month: state.summary.month });
+    const isP1 = state.summary.periodIdx === 0;
+    const rows = data.rows.map(r => ({
+      id: r.id, name: r.name,
+      sales: isP1 ? r.period1Sales : r.period2Sales,
+      payout: isP1 ? r.period1Payout : r.period2Payout
+    }));
+    const grandSales = rows.reduce((s, r) => s + r.sales, 0);
+    const grandPayout = rows.reduce((s, r) => s + r.payout, 0);
+
+    main.innerHTML = `
+      <h2 class="section-title">月次サマリー</h2>
+      <div class="period-select">
+        <button id="sPrevMonth">◀</button>
+        <div style="flex:2; text-align:center; align-self:center; font-size:13px;">${state.summary.year}年${state.summary.month}月</div>
+        <button id="sNextMonth">▶</button>
+      </div>
+      <div class="period-select">
+        ${periods.map((pp,i) => `<button data-i="${i}" class="${i===state.summary.periodIdx?'active':''}">${pp.label}</button>`).join('')}
+      </div>
+      <div class="card">
+        <div class="invoice-sum"><span>全体売上高</span><span class="mono">¥${grandSales.toLocaleString()}</span></div>
+        <div class="invoice-total" style="margin-top:6px; padding-top:10px;"><span>支給額 合計</span><span class="mono">¥${grandPayout.toLocaleString()}</span></div>
+      </div>
+      <div class="card">
+        ${rows.map(r => `
+          <div class="emp-list-row">
+            <div><div class="emp-name">${r.name}</div><div class="emp-sub">売上 ¥${r.sales.toLocaleString()}</div></div>
+            <div class="report-amount">¥${r.payout.toLocaleString()}</div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn btn-primary" id="batchPrintBtn">この期間の明細を一括印刷(封筒サイズ)</button>
+    `;
+    document.getElementById('sPrevMonth').onclick = () => { shiftSMonth(-1); draw(); };
+    document.getElementById('sNextMonth').onclick = () => { shiftSMonth(1); draw(); };
+    main.querySelectorAll('.period-select button[data-i]').forEach(b => {
+      b.onclick = () => { state.summary.periodIdx = Number(b.dataset.i); draw(); };
+    });
+    document.getElementById('batchPrintBtn').onclick = async () => {
+      const employees = await api('getEmployees');
+      await batchPrint(employees, periods[state.summary.periodIdx]);
+    };
+  };
+  const shiftSMonth = (delta) => {
+    let m = state.summary.month + delta, y = state.summary.year;
+    if (m < 1) { m = 12; y -= 1; } if (m > 12) { m = 1; y += 1; }
+    state.summary.month = m; state.summary.year = y;
   };
   await draw();
 }
@@ -376,6 +572,7 @@ async function renderApprove(main) {
             <div class="report-mid">
               <div><b>${r.employeeName}</b> ⇄ ${r.partnerName}</div>
               <div class="${r.matched ? 'match-ok' : 'match-warn'}">${r.matched ? '✓ ペア照合OK' : '⚠ 相手側の報告が見つかりません'}</div>
+              ${r.memo ? `<div style="color:var(--muted); font-size:11px; margin-top:2px;">${r.memo}</div>` : ''}
             </div>
             <div style="text-align:right; width:100%; margin-top:8px;">
               <div class="report-amount" style="margin-bottom:8px;">¥${Number(r.amount).toLocaleString()}</div>

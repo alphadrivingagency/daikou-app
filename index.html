@@ -157,7 +157,7 @@
    ここにGASデプロイ後の「ウェブアプリURL」を貼り付けてください
    例: https://script.google.com/macros/s/xxxxx/exec
    ========================================================= */
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbw4uq2FjEvzdxb7UnQaFIIcE7ycAvuZbCarMfJnqwwfC2pvpsMPuzRp8P1zv8sK89hGyA/exec';
+const GAS_API_URL = 'PASTE_YOUR_GAS_WEB_APP_URL_HERE';
 
 const state = {
   user: null,       // {id, name, email, role, clientName}
@@ -273,12 +273,12 @@ async function renderMain() {
   main.innerHTML = `<div class="empty">読み込み中…</div>`;
   try {
     if (state.tab === 'report') return renderReportForm(main);
-    if (state.tab === 'history') return renderHistory(main);
-    if (state.tab === 'payslip') return renderPayslip(main);
+    if (state.tab === 'history') return await renderHistory(main);
+    if (state.tab === 'payslip') return await renderPayslip(main);
     if (state.tab === 'account') return renderAccount(main);
-    if (state.tab === 'approve') return renderApprove(main);
-    if (state.tab === 'master') return renderMaster(main);
-    if (state.tab === 'summary') return renderSummary(main);
+    if (state.tab === 'approve') return await renderApprove(main);
+    if (state.tab === 'master') return await renderMaster(main);
+    if (state.tab === 'summary') return await renderSummary(main);
   } catch (e) {
     main.innerHTML = `<div class="card"><div class="error-msg">${e.message}</div></div>`;
   }

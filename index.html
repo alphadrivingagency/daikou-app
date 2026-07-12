@@ -106,11 +106,13 @@
   .invoice{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:22px; margin-bottom:16px;}
   .invoice-to{font-size:11px; color:var(--muted);}
   .invoice-to b{color:var(--text); font-size:15px; display:block; margin-top:2px;}
-  .invoice-period{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); margin:10px 0 16px;}
-  .invoice-line{display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:6px 0; border-bottom:1px dashed var(--line); gap:10px;}
+  .invoice-period{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); margin:10px 0 18px; padding-bottom:14px; border-bottom:2px solid var(--line); text-align:center;}
+  .invoice-lines{margin-bottom:6px;}
+  .invoice-line{display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px dashed var(--line); gap:10px;}
   .invoice-line span:first-child{flex:1;}
-  .invoice-sum{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; color:var(--muted);}
-  .invoice-total{display:flex; justify-content:space-between; margin-top:10px; padding-top:12px; border-top:1px solid var(--line);
+  .invoice-sum{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; color:var(--muted); border-top:1px solid var(--line);}
+  .invoice-sum:first-of-type{margin-top:8px; border-top:2px solid var(--line); padding-top:10px;}
+  .invoice-total{display:flex; justify-content:space-between; margin-top:14px; padding-top:14px; border-top:2px solid var(--line);
     font-weight:900; font-size:19px;}
   .invoice-total .mono{color:var(--amber);}
 
@@ -450,7 +452,7 @@ async function renderHistory(main) {
   });
   main.querySelectorAll('[data-edit]').forEach(b => {
     b.onclick = () => {
-      state.editReport = reports.find(x => x.id === b.dataset.edit);
+      state.editReport = reports.find(x => String(x.id) === String(b.dataset.edit));
       state.tab = 'report';
       render();
     };
@@ -530,7 +532,7 @@ async function renderPayslip(main) {
         <div class="card" style="padding:12px 16px;">
           <label style="margin-bottom:6px;">従業員</label>
           <select id="empSelect">
-            ${employees.map(e => `<option value="${e.id}" ${e.id===empId?'selected':''}>${e.name}</option>`).join('')}
+            ${employees.map(e => `<option value="${e.id}" ${String(e.id)===String(empId)?'selected':''}>${e.name}</option>`).join('')}
           </select>
         </div>
       ` : ''}
@@ -548,8 +550,10 @@ async function renderPayslip(main) {
           <div style="text-align:center; font-size:13px; font-weight:700; margin-bottom:4px;">御請求書</div>
           <div class="invoice-to" style="text-align:center;"><b>${slip.clientName || '(未設定)'} 様</b></div>
           <div class="invoice-period mono" style="text-align:center;">${slip.periodStart} 〜 ${slip.periodEnd}</div>
+          <div class="invoice-lines">
           ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
             slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono" style="color:var(--muted);">¥${l.sales.toLocaleString()}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
+          </div>
           <div class="invoice-sum"><span>小計</span><span class="mono">¥${slip.subtotal.toLocaleString()}</span></div>
           <div class="invoice-sum"><span>車両貸出料</span><span class="mono">−¥${slip.vehicleFee.toLocaleString()}</span></div>
           ${slip.insurance ? `<div class="invoice-sum"><span>保険代</span><span class="mono">−¥${slip.insurance.toLocaleString()}</span></div>` : ''}
@@ -674,6 +678,11 @@ async function renderSummary(main) {
         <div class="invoice-total" style="margin-top:6px; padding-top:10px;"><span>請求合計</span><span class="mono">¥${grandPayout.toLocaleString()}</span></div>
       </div>
       <div class="card">
+        <div style="display:flex; align-items:center; gap:10px; padding-bottom:8px; margin-bottom:4px; border-bottom:1px solid var(--line); font-size:11px; color:var(--muted);">
+          <div style="flex:1;">氏名</div>
+          <div style="width:90px; text-align:right;">売上</div>
+          <div style="width:100px; text-align:right;">請求額</div>
+        </div>
         ${rows.map(r => `
           <div class="emp-list-row" style="align-items:center; gap:10px;">
             <div class="emp-name" style="flex:1;">${r.name}</div>
@@ -829,26 +838,27 @@ async function renderMaster(main) {
   `;
   main.querySelectorAll('[data-toggle]').forEach(b => {
     b.onclick = async () => {
-      const emp = employees.find(e => e.id === b.dataset.toggle);
-      await api('saveEmployee', { employee: JSON.stringify({
-        id: emp.id, name: emp.name, email: emp.email, password: '',
-        commissionRate: emp.commissionRate, insuranceFee: emp.insuranceFee,
-        clientName: emp.clientName, role: emp.role, visible: !emp.visible
-      })});
-      invalidateEmployeeCaches();
-      renderMaster(main);
+      b.disabled = true;
+      try {
+        await api('toggleEmployeeVisibility', { employeeId: b.dataset.toggle });
+        invalidateEmployeeCaches();
+        renderMaster(main);
+      } catch (e) {
+        alert(e.message);
+        b.disabled = false;
+      }
     };
   });
   const openForm = (emp) => {
     const box = document.getElementById('empForm');
     box.innerHTML = `
       <div class="card">
-        <label>氏名</label><input id="fName" value="${emp?.name||''}">
-        <label>メールアドレス</label><input id="fEmail" value="${emp?.email||''}">
-        <label>パスワード ${emp ? '(変更する場合のみ入力)' : ''}</label><input id="fPass" type="password">
-        <label>歩合率(%)</label><input id="fRate" type="number" value="${emp?.commissionRate||''}">
-        <label>保険代(円/月)</label><input id="fIns" type="number" value="${emp?.insuranceFee||''}">
-        <label>請求先名</label><input id="fClient" value="${emp?.clientName||''}">
+        <label>氏名</label><input id="fName" autocomplete="off" value="${emp?.name||''}">
+        <label>メールアドレス</label><input id="fEmail" type="text" autocomplete="off" value="${emp?.email||''}">
+        <label>パスワード ${emp ? '(変更する場合のみ入力)' : ''}</label><input id="fPass" type="password" autocomplete="new-password">
+        <label>歩合率(%)</label><input id="fRate" type="number" autocomplete="off" value="${emp?.commissionRate||''}">
+        <label>保険代(円/月)</label><input id="fIns" type="number" autocomplete="off" value="${emp?.insuranceFee||''}">
+        <label>請求先名</label><input id="fClient" autocomplete="off" value="${emp?.clientName||''}">
         <label>ロール</label>
         <select id="fRole">
           <option value="従業員" ${emp?.role==='従業員'?'selected':''}>従業員</option>
@@ -896,7 +906,7 @@ async function renderMaster(main) {
     btn.disabled = false; btn.textContent = 'インポート用シートから取り込む';
   };
   main.querySelectorAll('[data-edit]').forEach(b => {
-    b.onclick = () => openForm(employees.find(e => e.id === b.dataset.edit));
+    b.onclick = () => openForm(employees.find(e => String(e.id) === String(b.dataset.edit)));
   });
 }
 

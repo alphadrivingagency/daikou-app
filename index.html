@@ -251,7 +251,7 @@ function bindLogin() {
 function renderShell() {
   const isAdmin = state.user.role === '管理者';
   const tabs = isAdmin
-    ? [['approve','✓','承認'], ['master','⚙','従業員'], ['payslip','⌘','明細/印刷'], ['summary','▤','サマリー']]
+    ? [['report','+','報告'], ['history','≡','履歴'], ['approve','✓','承認'], ['master','⚙','従業員'], ['payslip','⌘','明細/印刷'], ['summary','▤','サマリー']]
     : [['report','+','報告'], ['history','≡','履歴'], ['payslip','⌘','明細'], ['account','⚙','設定']];
 
   return `

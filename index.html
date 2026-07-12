@@ -110,7 +110,7 @@
   .invoice-lines{margin-bottom:6px;}
   .invoice-line{display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px dashed var(--line); gap:10px;}
   .invoice-line span:first-child{flex:1;}
-  .invoice-sum{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; color:var(--muted); border-top:1px solid var(--line);}
+  .invoice-sum{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; color:var(--muted);}
   .invoice-sum:first-of-type{margin-top:8px; border-top:2px solid var(--line); padding-top:10px;}
   .invoice-total{display:flex; justify-content:space-between; margin-top:14px; padding-top:14px; border-top:2px solid var(--line);
     font-weight:900; font-size:19px;}
@@ -152,8 +152,9 @@
   .batch-slip-to{font-size:11px; color:#555;}
   .batch-slip-name{font-weight:700; font-size:16px; margin:4px 0;}
   .batch-slip-period{font-size:10px; color:#555; margin-bottom:8px;}
-  .batch-line{display:flex; justify-content:space-between; align-items:center; padding:2px 0; border-bottom:1px dotted #ccc; gap:8px;}
+  .batch-line{display:flex; justify-content:space-between; align-items:center; padding:2px 0; gap:8px;}
   .batch-line span:first-child{flex:1;}
+  .batch-dateline{border-bottom:1px dotted #ccc;}
   .batch-sum{border-top:1px solid #000; margin-top:4px; border-bottom:none;}
   .batch-total{font-weight:700; font-size:15px; border-top:1px solid #000; margin-top:4px; border-bottom:none; padding-top:4px;}
 </style>
@@ -560,7 +561,7 @@ async function renderPayslip(main) {
             <span>日付</span><span class="mono">売上</span><span class="mono">請求額</span>
           </div>
           ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
-            slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono" style="color:var(--muted);">¥${l.sales.toLocaleString()}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
+            slip.lines.map((l, i) => `<div class="invoice-line" ${i === slip.lines.length - 1 ? 'style="border-bottom:none;"' : ''}><span>${l.date}</span><span class="mono" style="color:var(--muted);">¥${l.sales.toLocaleString()}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
           </div>
           <div class="invoice-sum"><span>小計</span><span class="mono">¥${slip.subtotal.toLocaleString()}</span></div>
           <div class="invoice-sum"><span>車両貸出料</span><span class="mono">−¥${slip.vehicleFee.toLocaleString()}</span></div>
@@ -628,8 +629,8 @@ async function batchPrint(period) {
           <div style="text-align:center; font-weight:700; font-size:11px; margin-bottom:2px;">御請求書</div>
           <div class="batch-slip-to" style="text-align:center;">${slip.clientName || ''} 様</div>
           <div class="batch-slip-period" style="text-align:center;">${slip.periodStart} 〜 ${slip.periodEnd}</div>
-          <div class="batch-line" style="font-weight:700; border-bottom:1px solid #000;"><span>日付</span><span>売上</span><span>請求額</span></div>
-          ${slip.lines.map(l => `<div class="batch-line"><span>${l.date.slice(5)}</span><span style="color:#666;">¥${l.sales.toLocaleString()}</span><span>¥${l.amount.toLocaleString()}</span></div>`).join('')}
+          <div class="batch-line batch-dateline" style="font-weight:700; border-bottom:1px solid #000;"><span>日付</span><span>売上</span><span>請求額</span></div>
+          ${slip.lines.map((l, i) => `<div class="batch-line ${i === slip.lines.length - 1 ? '' : 'batch-dateline'}"><span>${l.date.slice(5)}</span><span style="color:#666;">¥${l.sales.toLocaleString()}</span><span>¥${l.amount.toLocaleString()}</span></div>`).join('')}
           <div class="batch-line batch-sum"><span>小計</span><span>¥${slip.subtotal.toLocaleString()}</span></div>
           <div class="batch-line"><span>車両貸出料</span><span>−¥${slip.vehicleFee.toLocaleString()}</span></div>
           ${slip.insurance ? `<div class="batch-line"><span>保険代</span><span>−¥${slip.insurance.toLocaleString()}</span></div>` : ''}

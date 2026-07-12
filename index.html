@@ -237,6 +237,11 @@ function bindLogin() {
     try {
       const user = await api('login', { email, password });
       state.user = user;
+      state.slip = null;
+      state.summary = null;
+      state.editReport = null;
+      state.employeesCache = null;
+      state.employeeNamesCache = null;
       state.tab = user.role === '管理者' ? 'approve' : 'report';
       state.error = '';
     } catch (e) {
@@ -279,7 +284,16 @@ function renderShell() {
 }
 
 function bindShell() {
-  document.getElementById('logoutBtn').onclick = () => { state.user = null; render(); };
+  document.getElementById('logoutBtn').onclick = () => {
+    state.user = null;
+    state.slip = null;
+    state.summary = null;
+    state.editReport = null;
+    state.employeesCache = null;
+    state.employeeNamesCache = null;
+    state.tab = 'report';
+    render();
+  };
   document.querySelectorAll('.tab').forEach(el => {
     el.onclick = () => { state.tab = el.dataset.tab; render(); };
   });
@@ -493,6 +507,8 @@ async function renderPayslip(main) {
     const now = new Date();
     state.slip = { year: now.getFullYear(), month: now.getMonth() + 1, periodIdx: now.getDate() <= 15 ? 0 : 1, employeeId: isAdmin ? null : state.user.id };
   }
+  // 従業員は常に自分自身の明細のみ閲覧できるようにする(念のための二重チェック)
+  if (!isAdmin) state.slip.employeeId = state.user.id;
   let employees = [];
   if (isAdmin) {
     employees = await getEmployeesCached();

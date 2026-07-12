@@ -107,7 +107,8 @@
   .invoice-to{font-size:11px; color:var(--muted);}
   .invoice-to b{color:var(--text); font-size:15px; display:block; margin-top:2px;}
   .invoice-period{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); margin:10px 0 16px;}
-  .invoice-line{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px dashed var(--line);}
+  .invoice-line{display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:6px 0; border-bottom:1px dashed var(--line); gap:10px;}
+  .invoice-line span:first-child{flex:1;}
   .invoice-sum{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; color:var(--muted);}
   .invoice-total{display:flex; justify-content:space-between; margin-top:10px; padding-top:12px; border-top:1px solid var(--line);
     font-weight:900; font-size:19px;}
@@ -144,7 +145,8 @@
   .batch-slip-to{font-size:11px; color:#555;}
   .batch-slip-name{font-weight:700; font-size:16px; margin:4px 0;}
   .batch-slip-period{font-size:10px; color:#555; margin-bottom:8px;}
-  .batch-line{display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px dotted #ccc;}
+  .batch-line{display:flex; justify-content:space-between; align-items:center; padding:2px 0; border-bottom:1px dotted #ccc; gap:8px;}
+  .batch-line span:first-child{flex:1;}
   .batch-sum{border-top:1px solid #000; margin-top:4px; border-bottom:none;}
   .batch-total{font-weight:700; font-size:15px; border-top:1px solid #000; margin-top:4px; border-bottom:none; padding-top:4px;}
 </style>
@@ -547,7 +549,7 @@ async function renderPayslip(main) {
           <div class="invoice-to" style="text-align:center;"><b>${slip.clientName || '(未設定)'} 様</b></div>
           <div class="invoice-period mono" style="text-align:center;">${slip.periodStart} 〜 ${slip.periodEnd}</div>
           ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
-            slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
+            slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono" style="color:var(--muted);">¥${l.sales.toLocaleString()}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
           <div class="invoice-sum"><span>小計</span><span class="mono">¥${slip.subtotal.toLocaleString()}</span></div>
           <div class="invoice-sum"><span>車両貸出料</span><span class="mono">−¥${slip.vehicleFee.toLocaleString()}</span></div>
           ${slip.insurance ? `<div class="invoice-sum"><span>保険代</span><span class="mono">−¥${slip.insurance.toLocaleString()}</span></div>` : ''}
@@ -614,7 +616,7 @@ async function batchPrint(period) {
           <div style="text-align:center; font-weight:700; font-size:11px; margin-bottom:2px;">御請求書</div>
           <div class="batch-slip-to" style="text-align:center;">${slip.clientName || ''} 様</div>
           <div class="batch-slip-period" style="text-align:center;">${slip.periodStart} 〜 ${slip.periodEnd}</div>
-          ${slip.lines.map(l => `<div class="batch-line"><span>${l.date.slice(5)}</span><span>¥${l.amount.toLocaleString()}</span></div>`).join('')}
+          ${slip.lines.map(l => `<div class="batch-line"><span>${l.date.slice(5)}</span><span style="color:#666;">¥${l.sales.toLocaleString()}</span><span>¥${l.amount.toLocaleString()}</span></div>`).join('')}
           <div class="batch-line batch-sum"><span>小計</span><span>¥${slip.subtotal.toLocaleString()}</span></div>
           <div class="batch-line"><span>車両貸出料</span><span>−¥${slip.vehicleFee.toLocaleString()}</span></div>
           ${slip.insurance ? `<div class="batch-line"><span>保険代</span><span>−¥${slip.insurance.toLocaleString()}</span></div>` : ''}
@@ -673,9 +675,10 @@ async function renderSummary(main) {
       </div>
       <div class="card">
         ${rows.map(r => `
-          <div class="emp-list-row">
-            <div><div class="emp-name">${r.name}</div><div class="emp-sub">売上 ¥${r.sales.toLocaleString()}</div></div>
-            <div class="report-amount">¥${r.payout.toLocaleString()}</div>
+          <div class="emp-list-row" style="align-items:center; gap:10px;">
+            <div class="emp-name" style="flex:1;">${r.name}</div>
+            <div class="mono" style="color:var(--muted); width:90px; text-align:right;">¥${r.sales.toLocaleString()}</div>
+            <div class="report-amount" style="width:100px; text-align:right;">¥${r.payout.toLocaleString()}</div>
           </div>
         `).join('')}
       </div>

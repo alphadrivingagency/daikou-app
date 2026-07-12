@@ -528,7 +528,7 @@ async function renderPayslip(main) {
         ${!slip ? '<div class="empty">従業員を選択してください</div>' : `
           <div class="invoice-name" style="font-size:18px; font-weight:900; text-align:center; margin-bottom:8px;">${slip.employeeName}</div>
           <div style="text-align:center; font-size:13px; font-weight:700; margin-bottom:4px;">御請求書</div>
-          <div class="invoice-to" style="text-align:center;"><b>${slip.clientName || '(未設定)'}</b> 様</div>
+          <div class="invoice-to" style="text-align:center;"><b>${slip.clientName || '(未設定)'} 様</b></div>
           <div class="invoice-period mono" style="text-align:center;">${slip.periodStart} 〜 ${slip.periodEnd}</div>
           ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
             slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
@@ -635,7 +635,7 @@ async function renderSummary(main) {
     const rows = data.rows.map(r => ({
       id: r.id, name: r.name,
       sales: isP1 ? r.period1Sales : r.period2Sales,
-      payout: isP1 ? r.period1Payout : r.period2Payout
+      payout: Math.max(0, isP1 ? r.period1Payout : r.period2Payout)
     }));
     const grandSales = rows.reduce((s, r) => s + r.sales, 0);
     const grandPayout = rows.reduce((s, r) => s + r.payout, 0);

@@ -813,6 +813,16 @@ async function renderMaster(main) {
     </div>
     <button class="btn btn-ghost" id="addEmpBtn">＋ 従業員を追加</button>
     <div id="empForm"></div>
+
+    <h2 class="section-title" style="margin-top:24px;">過去データの一括インポート</h2>
+    <div class="card">
+      <p style="color:var(--muted); font-size:12px; line-height:1.6; margin-top:0;">
+        スプレッドシートの「インポート用」シート(日付・氏名・売上・相方)に貼り付けたデータを、
+        「承認済み」の日次報告として一括で取り込みます。
+      </p>
+      <button class="btn btn-primary" id="importBtn">インポート用シートから取り込む</button>
+      <div id="importResult"></div>
+    </div>
   `;
   main.querySelectorAll('[data-toggle]').forEach(b => {
     b.onclick = async () => {
@@ -865,6 +875,23 @@ async function renderMaster(main) {
     };
   };
   document.getElementById('addEmpBtn').onclick = () => openForm(null);
+  document.getElementById('importBtn').onclick = async () => {
+    const btn = document.getElementById('importBtn');
+    const resultBox = document.getElementById('importResult');
+    btn.disabled = true; btn.textContent = '取り込み中…';
+    try {
+      const res = await api('importReports');
+      let html = `<p style="color:var(--ok); font-size:13px; margin:10px 0 0;">${res.imported}件を取り込みました。</p>`;
+      if (res.skippedCount > 0) {
+        html += `<p style="color:var(--danger); font-size:13px; margin:6px 0 0;">${res.skippedCount}件は取り込めませんでした:</p>`;
+        html += res.skipped.map(s => `<div style="font-size:12px; color:var(--muted);">・${s.date} ${s.name}(${s.reason})</div>`).join('');
+      }
+      resultBox.innerHTML = html;
+    } catch (e) {
+      resultBox.innerHTML = `<p class="error-msg">${e.message}</p>`;
+    }
+    btn.disabled = false; btn.textContent = 'インポート用シートから取り込む';
+  };
   main.querySelectorAll('[data-edit]').forEach(b => {
     b.onclick = () => openForm(employees.find(e => e.id === b.dataset.edit));
   });

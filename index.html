@@ -134,6 +134,11 @@
     .print-area, .print-area *{visibility:visible;}
     #batchPrintArea.print-area{display:block; position:absolute; left:0; top:0; width:100%;}
     #singleInvoice.print-area{position:absolute; left:0; top:0; width:100%; background:#fff; color:#000; border-color:#000;}
+    #singleInvoice.print-area .invoice-period{border-bottom:2px solid #000;}
+    #singleInvoice.print-area .invoice-sum:first-of-type{border-top:2px solid #000;}
+    #singleInvoice.print-area .invoice-total{border-top:2px solid #000;}
+    #singleInvoice.print-area .invoice-line{border-bottom:1px solid #999;}
+    #singleInvoice.print-area .invoice-total .mono{color:#000;}
   }
   .batch-print-page{
     display:grid; grid-template-columns:repeat(2, 1fr); grid-template-rows:repeat(2, 1fr);
@@ -551,6 +556,9 @@ async function renderPayslip(main) {
           <div class="invoice-to" style="text-align:center;"><b>${slip.clientName || '(未設定)'} 様</b></div>
           <div class="invoice-period mono" style="text-align:center;">${slip.periodStart} 〜 ${slip.periodEnd}</div>
           <div class="invoice-lines">
+          <div class="invoice-line" style="font-size:11px; color:var(--muted); font-weight:700; border-bottom:2px solid var(--line);">
+            <span>日付</span><span class="mono">売上</span><span class="mono">請求額</span>
+          </div>
           ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
             slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono" style="color:var(--muted);">¥${l.sales.toLocaleString()}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
           </div>
@@ -620,6 +628,7 @@ async function batchPrint(period) {
           <div style="text-align:center; font-weight:700; font-size:11px; margin-bottom:2px;">御請求書</div>
           <div class="batch-slip-to" style="text-align:center;">${slip.clientName || ''} 様</div>
           <div class="batch-slip-period" style="text-align:center;">${slip.periodStart} 〜 ${slip.periodEnd}</div>
+          <div class="batch-line" style="font-weight:700; border-bottom:1px solid #000;"><span>日付</span><span>売上</span><span>請求額</span></div>
           ${slip.lines.map(l => `<div class="batch-line"><span>${l.date.slice(5)}</span><span style="color:#666;">¥${l.sales.toLocaleString()}</span><span>¥${l.amount.toLocaleString()}</span></div>`).join('')}
           <div class="batch-line batch-sum"><span>小計</span><span>¥${slip.subtotal.toLocaleString()}</span></div>
           <div class="batch-line"><span>車両貸出料</span><span>−¥${slip.vehicleFee.toLocaleString()}</span></div>

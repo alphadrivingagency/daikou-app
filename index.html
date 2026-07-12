@@ -109,9 +109,11 @@
   .invoice-period{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); margin:10px 0 18px; padding-bottom:14px; border-bottom:2px solid var(--line); text-align:center;}
   .invoice-lines{margin-bottom:6px;}
   .invoice-line{display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px dashed var(--line); gap:10px;}
-  .invoice-line span:first-child{flex:1;}
+  .invoice-line span:first-child{flex:1; text-align:left;}
+  .invoice-line span:nth-child(2){width:76px; text-align:center;}
+  .invoice-line span:nth-child(3){width:76px; text-align:center;}
   .invoice-sum{display:flex; justify-content:space-between; font-size:13px; padding:6px 0; color:var(--muted);}
-  .invoice-sum:first-of-type{margin-top:8px; border-top:2px solid var(--line); padding-top:10px;}
+  .invoice-sum-first{margin-top:8px; border-top:2px solid var(--line); padding-top:10px;}
   .invoice-total{display:flex; justify-content:space-between; margin-top:14px; padding-top:14px; border-top:2px solid var(--line);
     font-weight:900; font-size:19px;}
   .invoice-total .mono{color:var(--amber);}
@@ -135,7 +137,7 @@
     #batchPrintArea.print-area{display:block; position:absolute; left:0; top:0; width:100%;}
     #singleInvoice.print-area{position:absolute; left:0; top:0; width:100%; background:#fff; color:#000; border-color:#000;}
     #singleInvoice.print-area .invoice-period{border-bottom:2px solid #000;}
-    #singleInvoice.print-area .invoice-sum:first-of-type{border-top:2px solid #000;}
+    #singleInvoice.print-area .invoice-sum-first{border-top:2px solid #000;}
     #singleInvoice.print-area .invoice-total{border-top:2px solid #000;}
     #singleInvoice.print-area .invoice-line{border-bottom:1px solid #999;}
     #singleInvoice.print-area .invoice-total .mono{color:#000;}
@@ -153,7 +155,9 @@
   .batch-slip-name{font-weight:700; font-size:16px; margin:4px 0;}
   .batch-slip-period{font-size:10px; color:#555; margin-bottom:8px;}
   .batch-line{display:flex; justify-content:space-between; align-items:center; padding:2px 0; gap:8px;}
-  .batch-line span:first-child{flex:1;}
+  .batch-line span:first-child{flex:1; text-align:left;}
+  .batch-dateline span:nth-child(2){width:50px; text-align:center;}
+  .batch-dateline span:nth-child(3){width:50px; text-align:center;}
   .batch-dateline{border-bottom:1px dotted #ccc;}
   .batch-sum{border-top:1px solid #000; margin-top:4px; border-bottom:none;}
   .batch-total{font-weight:700; font-size:15px; border-top:1px solid #000; margin-top:4px; border-bottom:none; padding-top:4px;}
@@ -561,9 +565,9 @@ async function renderPayslip(main) {
             <span>日付</span><span class="mono">売上</span><span class="mono">請求額</span>
           </div>
           ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
-            slip.lines.map((l, i) => `<div class="invoice-line" ${i === slip.lines.length - 1 ? 'style="border-bottom:none;"' : ''}><span>${l.date}</span><span class="mono" style="color:var(--muted);">¥${l.sales.toLocaleString()}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
+            slip.lines.map((l, i) => `<div class="invoice-line" ${i === slip.lines.length - 1 ? 'style="border-bottom:none !important;"' : ''}><span>${l.date}</span><span class="mono" style="color:var(--muted);">¥${l.sales.toLocaleString()}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
           </div>
-          <div class="invoice-sum"><span>小計</span><span class="mono">¥${slip.subtotal.toLocaleString()}</span></div>
+          <div class="invoice-sum invoice-sum-first"><span>小計</span><span class="mono">¥${slip.subtotal.toLocaleString()}</span></div>
           <div class="invoice-sum"><span>車両貸出料</span><span class="mono">−¥${slip.vehicleFee.toLocaleString()}</span></div>
           ${slip.insurance ? `<div class="invoice-sum"><span>保険代</span><span class="mono">−¥${slip.insurance.toLocaleString()}</span></div>` : ''}
           ${(slip.adjustments||[]).map(a => `<div class="invoice-sum"><span>調整: ${a.reason||''}</span><span class="mono">${a.amount>=0?'+':''}¥${a.amount.toLocaleString()}</span></div>`).join('')}

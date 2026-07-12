@@ -526,8 +526,10 @@ async function renderPayslip(main) {
       </div>
       <div class="invoice" id="singleInvoice">
         ${!slip ? '<div class="empty">従業員を選択してください</div>' : `
-          <div class="invoice-to">請求先<b>${slip.clientName || '(未設定)'}</b></div>
-          <div class="invoice-period mono">${slip.periodStart} 〜 ${slip.periodEnd} / ${slip.employeeName}</div>
+          <div class="invoice-name" style="font-size:18px; font-weight:900; text-align:center; margin-bottom:8px;">${slip.employeeName}</div>
+          <div style="text-align:center; font-size:13px; font-weight:700; margin-bottom:4px;">御請求書</div>
+          <div class="invoice-to" style="text-align:center;"><b>${slip.clientName || '(未設定)'}</b> 様</div>
+          <div class="invoice-period mono" style="text-align:center;">${slip.periodStart} 〜 ${slip.periodEnd}</div>
           ${slip.lines.length === 0 ? '<div class="empty">この期間の承認済み報告はまだありません</div>' :
             slip.lines.map(l => `<div class="invoice-line"><span>${l.date}</span><span class="mono">¥${l.amount.toLocaleString()}</span></div>`).join('')}
           <div class="invoice-sum"><span>小計</span><span class="mono">¥${slip.subtotal.toLocaleString()}</span></div>
@@ -592,15 +594,16 @@ async function batchPrint(period) {
     <div class="batch-print-page">
       ${chunk.map(slip => `
         <div class="batch-slip">
-          <div class="batch-slip-to">${slip.clientName || ''} 様</div>
-          <div class="batch-slip-name">${slip.employeeName}</div>
-          <div class="batch-slip-period">${slip.periodStart} 〜 ${slip.periodEnd}</div>
+          <div class="batch-slip-name" style="text-align:center;">${slip.employeeName}</div>
+          <div style="text-align:center; font-weight:700; font-size:11px; margin-bottom:2px;">御請求書</div>
+          <div class="batch-slip-to" style="text-align:center;">${slip.clientName || ''} 様</div>
+          <div class="batch-slip-period" style="text-align:center;">${slip.periodStart} 〜 ${slip.periodEnd}</div>
           ${slip.lines.map(l => `<div class="batch-line"><span>${l.date.slice(5)}</span><span>¥${l.amount.toLocaleString()}</span></div>`).join('')}
           <div class="batch-line batch-sum"><span>小計</span><span>¥${slip.subtotal.toLocaleString()}</span></div>
           <div class="batch-line"><span>車両貸出料</span><span>−¥${slip.vehicleFee.toLocaleString()}</span></div>
           ${slip.insurance ? `<div class="batch-line"><span>保険代</span><span>−¥${slip.insurance.toLocaleString()}</span></div>` : ''}
           ${(slip.adjustments||[]).map(a => `<div class="batch-line"><span>調整:${a.reason||''}</span><span>${a.amount>=0?'+':''}¥${a.amount.toLocaleString()}</span></div>`).join('')}
-          <div class="batch-line batch-total"><span>支給額</span><span>¥${slip.total.toLocaleString()}</span></div>
+          <div class="batch-line batch-total"><span>請求合計</span><span>¥${slip.total.toLocaleString()}</span></div>
         </div>
       `).join('')}
       ${chunk.length < 4 ? Array.from({length: 4 - chunk.length}).map(() => '<div class="batch-slip"></div>').join('') : ''}
@@ -650,7 +653,7 @@ async function renderSummary(main) {
       ${isClosed ? `<div class="card" style="border-color:var(--ok); color:var(--ok); font-size:12px; text-align:center;">この期間は確定済みです</div>` : ''}
       <div class="card">
         <div class="invoice-sum"><span>全体売上高</span><span class="mono">¥${grandSales.toLocaleString()}</span></div>
-        <div class="invoice-total" style="margin-top:6px; padding-top:10px;"><span>支給額 合計</span><span class="mono">¥${grandPayout.toLocaleString()}</span></div>
+        <div class="invoice-total" style="margin-top:6px; padding-top:10px;"><span>請求合計</span><span class="mono">¥${grandPayout.toLocaleString()}</span></div>
       </div>
       <div class="card">
         ${rows.map(r => `

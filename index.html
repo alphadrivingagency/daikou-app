@@ -782,16 +782,31 @@ async function renderMaster(main) {
       ${employees.map(e => `
         <div class="emp-list-row">
           <div>
-            <div class="emp-name">${e.name}</div>
+            <div class="emp-name">${e.name} ${e.visible ? '' : '<span class="badge badge-pending">非表示</span>'}</div>
             <div class="emp-sub">歩合${e.commissionRate}% ・ 保険¥${Number(e.insuranceFee||0).toLocaleString()} ・ ${e.role}</div>
           </div>
-          <button class="link-btn" data-edit="${e.id}">編集</button>
+          <div style="text-align:right;">
+            <button class="link-btn" data-edit="${e.id}">編集</button><br>
+            <button class="link-btn" data-toggle="${e.id}" style="margin-top:4px; ${e.visible ? 'color:var(--danger);' : 'color:var(--ok);'}">${e.visible ? '相手選択で非表示にする' : '相手選択で表示に戻す'}</button>
+          </div>
         </div>
       `).join('')}
     </div>
     <button class="btn btn-ghost" id="addEmpBtn">＋ 従業員を追加</button>
     <div id="empForm"></div>
   `;
+  main.querySelectorAll('[data-toggle]').forEach(b => {
+    b.onclick = async () => {
+      const emp = employees.find(e => e.id === b.dataset.toggle);
+      await api('saveEmployee', { employee: JSON.stringify({
+        id: emp.id, name: emp.name, email: emp.email, password: '',
+        commissionRate: emp.commissionRate, insuranceFee: emp.insuranceFee,
+        clientName: emp.clientName, role: emp.role, visible: !emp.visible
+      })});
+      invalidateEmployeeCaches();
+      renderMaster(main);
+    };
+  });
   const openForm = (emp) => {
     const box = document.getElementById('empForm');
     box.innerHTML = `
@@ -807,6 +822,11 @@ async function renderMaster(main) {
           <option value="従業員" ${emp?.role==='従業員'?'selected':''}>従業員</option>
           <option value="管理者" ${emp?.role==='管理者'?'selected':''}>管理者</option>
         </select>
+        <label>相手(ペア)選択への表示</label>
+        <select id="fVisible">
+          <option value="true" ${emp?.visible !== false ? 'selected' : ''}>表示する</option>
+          <option value="false" ${emp?.visible === false ? 'selected' : ''}>非表示にする</option>
+        </select>
         <button class="btn btn-primary" id="saveEmpBtn">保存</button>
       </div>
     `;
@@ -819,6 +839,7 @@ async function renderMaster(main) {
         insuranceFee: document.getElementById('fIns').value,
         clientName: document.getElementById('fClient').value,
         role: document.getElementById('fRole').value,
+        visible: document.getElementById('fVisible').value === 'true',
       })});
       invalidateEmployeeCaches();
       renderMaster(main);

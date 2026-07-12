@@ -133,20 +133,20 @@
     #singleInvoice.print-area{position:absolute; left:0; top:0; width:100%; background:#fff; color:#000; border-color:#000;}
   }
   .batch-print-page{
-    display:grid; grid-template-columns:repeat(3, 1fr); grid-template-rows:repeat(2, 1fr);
+    display:grid; grid-template-columns:repeat(2, 1fr); grid-template-rows:repeat(2, 1fr);
     width:210mm; height:297mm; page-break-after:always; box-sizing:border-box;
   }
   .batch-slip{
-    border:1px dashed #999; padding:5mm; font-size:8.5px; color:#000; background:#fff;
+    border:1px dashed #999; padding:8mm; font-size:12px; color:#000; background:#fff;
     display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box;
     font-family:'JetBrains Mono', monospace;
   }
-  .batch-slip-to{font-size:8px; color:#555;}
-  .batch-slip-name{font-weight:700; font-size:11px; margin:2px 0;}
-  .batch-slip-period{font-size:7.5px; color:#555; margin-bottom:4px;}
-  .batch-line{display:flex; justify-content:space-between; padding:1px 0; border-bottom:1px dotted #ccc;}
-  .batch-sum{border-top:1px solid #000; margin-top:2px; border-bottom:none;}
-  .batch-total{font-weight:700; font-size:10px; border-top:1px solid #000; margin-top:2px; border-bottom:none;}
+  .batch-slip-to{font-size:11px; color:#555;}
+  .batch-slip-name{font-weight:700; font-size:16px; margin:4px 0;}
+  .batch-slip-period{font-size:10px; color:#555; margin-bottom:8px;}
+  .batch-line{display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px dotted #ccc;}
+  .batch-sum{border-top:1px solid #000; margin-top:4px; border-bottom:none;}
+  .batch-total{font-weight:700; font-size:15px; border-top:1px solid #000; margin-top:4px; border-bottom:none; padding-top:4px;}
 </style>
 </head>
 <body>
@@ -177,6 +177,24 @@ async function api(action, params = {}) {
   const json = await res.json();
   if (json.error) throw new Error(json.error);
   return json;
+}
+
+// 従業員一覧は頻繁には変わらないため、一度取得したらセッション内で使い回す
+async function getEmployeeNamesCached() {
+  if (!state.employeeNamesCache) {
+    state.employeeNamesCache = await api('getEmployeeNames');
+  }
+  return state.employeeNamesCache;
+}
+async function getEmployeesCached(force) {
+  if (!state.employeesCache || force) {
+    state.employeesCache = await api('getEmployees');
+  }
+  return state.employeesCache;
+}
+function invalidateEmployeeCaches() {
+  state.employeeNamesCache = null;
+  state.employeesCache = null;
 }
 
 function render() {
@@ -311,7 +329,7 @@ function getDefaultReportDate() {
 
 async function renderReportForm(main, editReport) {
   const defaultDate = editReport ? editReport.date : getDefaultReportDate();
-  const names = (await api('getEmployeeNames')).filter(e => String(e.id) !== String(state.user.id));
+  const names = (await getEmployeeNamesCached()).filter(e => String(e.id) !== String(state.user.id));
   main.innerHTML = `
     <h2 class="section-title">${editReport ? '報告の編集' : '日次報告'}</h2>
     <div class="card">
@@ -477,11 +495,12 @@ async function renderPayslip(main) {
   }
   let employees = [];
   if (isAdmin) {
-    employees = await api('getEmployees');
+    employees = await getEmployeesCached();
     if (!state.slip.employeeId) state.slip.employeeId = employees[0]?.id;
   }
 
   const draw = async () => {
+    main.innerHTML = `<div class="empty">読み込み中…</div>`;
     const periods = periodsForMonth(state.slip.year, state.slip.month);
     const p = periods[state.slip.periodIdx];
     const empId = state.slip.employeeId;
@@ -566,7 +585,7 @@ async function batchPrint(period) {
     alert(e.message); return;
   }
   const chunks = [];
-  for (let i = 0; i < slips.length; i += 6) chunks.push(slips.slice(i, i + 6));
+  for (let i = 0; i < slips.length; i += 4) chunks.push(slips.slice(i, i + 4));
   if (chunks.length === 0) chunks.push([]);
 
   area.innerHTML = chunks.map(chunk => `
@@ -574,7 +593,7 @@ async function batchPrint(period) {
       ${chunk.map(slip => `
         <div class="batch-slip">
           <div class="batch-slip-to">${slip.clientName || ''} 様</div>
-          <div class="batch-slip-name">${slip.employeeName} 様</div>
+          <div class="batch-slip-name">${slip.employeeName}</div>
           <div class="batch-slip-period">${slip.periodStart} 〜 ${slip.periodEnd}</div>
           ${slip.lines.map(l => `<div class="batch-line"><span>${l.date.slice(5)}</span><span>¥${l.amount.toLocaleString()}</span></div>`).join('')}
           <div class="batch-line batch-sum"><span>小計</span><span>¥${slip.subtotal.toLocaleString()}</span></div>
@@ -584,7 +603,7 @@ async function batchPrint(period) {
           <div class="batch-line batch-total"><span>支給額</span><span>¥${slip.total.toLocaleString()}</span></div>
         </div>
       `).join('')}
-      ${chunk.length < 6 ? Array.from({length: 6 - chunk.length}).map(() => '<div class="batch-slip"></div>').join('') : ''}
+      ${chunk.length < 4 ? Array.from({length: 4 - chunk.length}).map(() => '<div class="batch-slip"></div>').join('') : ''}
     </div>
   `).join('');
 
@@ -600,6 +619,7 @@ async function renderSummary(main) {
     state.summary = { year: now.getFullYear(), month: now.getMonth() + 1, periodIdx: now.getDate() <= 15 ? 0 : 1 };
   }
   const draw = async () => {
+    main.innerHTML = `<div class="empty">読み込み中…</div>`;
     const periods = periodsForMonth(state.summary.year, state.summary.month);
     const period = periods[state.summary.periodIdx];
     const [data, closedRes, adjustments] = await Promise.all([
@@ -755,7 +775,7 @@ async function renderApprove(main) {
 
 /* ---------------- 管理者: 従業員マスタ ---------------- */
 async function renderMaster(main) {
-  const employees = await api('getEmployees');
+  const employees = await getEmployeesCached();
   main.innerHTML = `
     <h2 class="section-title">従業員マスタ</h2>
     <div class="card">
@@ -800,6 +820,7 @@ async function renderMaster(main) {
         clientName: document.getElementById('fClient').value,
         role: document.getElementById('fRole').value,
       })});
+      invalidateEmployeeCaches();
       renderMaster(main);
     };
   };
